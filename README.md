@@ -1,4 +1,4 @@
-# PyTorch implementation of “Monge-Ampère Flow for Generative Modeling” [arXiv1809.10188](https://arxiv.org/abs/1809.10188)
+# PyTorch implementation of “Monge-Ampère Flow for Generative Modeling” [arXiv:1809.10188](https://arxiv.org/abs/1809.10188)
 
 
 ## How to run the code 
@@ -32,7 +32,7 @@ python density_estimation.py -hdim 1024 -Nsteps 100 -epsilon 0.1 -checkpoint dat
 python variational_free_energy.py -hdim 512 -Nsteps 50 -checkpoint data/learn_ot/ising_L16_d2_T2.269185314213022_symmetrize_Simple_MLP_hdim512_Batchsize64_lr0.001_delta0.0_Nsteps50_epsilon0.1/epoch-1.chkp -show  -L 16  -symmetrize 
 ```
 
-## Exact Ising free energy at critical temperature on $L\times L$ periodic lattices (For details see https://arxiv.org/abs/1802.02840)
+## Reference: Exact Ising free energy at critical temperature on $L\times L$ periodic lattices (For details see Appendix B of the paper)
 
 | $L$  | Free energy per site |
 | :--: | ------------------: |
