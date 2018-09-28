@@ -1,19 +1,19 @@
-# PyTorch implementation of “Monge-Ampère Flow for Generative Modeling”
+# PyTorch implementation of “Monge-Ampère Flow for Generative Modeling” [arXiv1809.10188](https://arxiv.org/abs/1809.10188)
 
 
 ## How to run the code 
 
-##Density estimation of MNIST
+### Density estimation of MNIST
 ```python
 python density_estimation.py -dataset MNIST -hdim 1024 -Nsteps 100 -train -cuda 7
 ```
 
-###Variational free energy of Ising
+### Variational free energy of Ising
 ```python 
 python variational_free_energy.py -L 16 -fe_exact -2.3159198563359373 -train -cuda 7 -hdim 512 -Nsteps 50 -Batchsize 64 -symmetrize
 ```
 
-###Plots in the paper
+### Plots in the paper
 
 - MNIST NLL
 
