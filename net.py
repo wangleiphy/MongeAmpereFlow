@@ -36,7 +36,7 @@ def roll(tensor, shift, axis):
     return torch.cat([after, before], axis)
 
 class CNN(nn.Module):
-    def __init__(self, L, hidden_size, device='cpu', name=None):
+    def __init__(self, L, hidden_size, use_z2=True,device='cpu', name=None):
         super(CNN, self).__init__()
         self.device = device
         if name is None:
@@ -47,34 +47,37 @@ class CNN(nn.Module):
         self.L = L 
         self.dim = L**2
         self.conv1 = nn.Conv2d(1, hidden_size, kernel_size=3, padding=1)
-        self.conv2 = nn.Conv2d(hidden_size, 2*hidden_size, kernel_size=3, padding=1)
-        self.fc1 = nn.Linear(2*hidden_size*(self.L//4)**2, 64)
+        #self.conv2 = nn.Conv2d(hidden_size, 2*hidden_size, kernel_size=3, padding=1)
+        self.fc1 = nn.Linear(hidden_size*(self.L//2)**2, 64)
         self.fc2 = nn.Linear(64, 1, bias=False)
-    
+
+        self.use_z2 = use_z2
+
     def forward(self, x):
-        return self._forward(x) + self._forward(-x)
+        if self.use_z2:
+            return self._forward(x) + self._forward(-x)
+        else:
+            return self._forward(x)
 
     def _forward(self, x):
         x = x.view(x.shape[0], 1, self.L, self.L)
-        x = F.elu(F.avg_pool2d(self.conv1(x), 2))
-        x = F.elu(F.avg_pool2d(self.conv2(x), 2))
+        x = F.softplus(F.avg_pool2d(self.conv1(x), 2))
+        #x = F.softplus(F.avg_pool2d(self.conv2(x), 2))
         x = x.view(x.shape[0], -1)
-        x = F.elu(self.fc1(x))
+        x = F.softplus(self.fc1(x))
         return self.fc2(x).sum(dim=1)
 
-    def save(self, save_dict):
-        save_dict['fc1'] = self.fc1.state_dict()
-        save_dict['fc2'] = self.fc2.state_dict()
-        save_dict['conv1'] = self.conv1.state_dict()
-        save_dict['conv2'] = self.conv2.state_dict()
-        return save_dict 
+    def grad(self, x):
+        batchsize = x.shape[0]
+        return torch.autograd.grad(self.forward(x), x, grad_outputs=torch.ones(batchsize, device=x.device), create_graph=True)[0]
 
-    def load(self, save_dict):
-        self.fc1.load_state_dict(save_dict['fc1'])
-        self.fc2.load_state_dict(save_dict['fc2'])
-        self.conv1.load_state_dict(save_dict['conv1'])
-        self.conv2.load_state_dict(save_dict['conv2'])
-        return save_dict 
+    def laplacian(self, x):
+        batchsize = x.shape[0]
+        z = torch.randn(batchsize, self.dim).to(x.device)
+        #z = 2*torch.randint(2, (dim, 1), device=x.device).float() - 1.0
+        grad_z = (self.grad(x)*z).sum(dim=1)
+        grad2_z = torch.autograd.grad(grad_z, x, grad_outputs=torch.ones(x.shape[0], device=x.device), create_graph=True)[0]
+        return (grad2_z * z).sum(dim=1)
 
 class MLP(nn.Module):
     def __init__(self, dim, hidden_size, use_z2=True, device='cpu', name=None):
@@ -121,24 +124,33 @@ class MLP(nn.Module):
         res = torch.mm(res, self.fc1.weight)
         return res
 
+    #def laplacian(self, x):
+    #    out = self.fc1(x)
+    #    a2_prime = self.activation1_prime(out)
+    #    a2_prime2 = self.activation1_prime2(out)
+    #    out = self.fc2(self.activation1(out))
+    #    a3_prime = self.activation2_prime(out)
+    #    a3_prime2 = self.activation2_prime2(out)
+
+    #    res1 = torch.mm(a3_prime2, torch.diag(self.fc3.weight[0]))
+    #    res = torch.einsum('bj,kj,ji->bki', (a2_prime, self.fc2.weight, self.fc1.weight))
+    #    res1 = res1* ((res**2).sum(dim=2)) 
+
+    #    res2 = torch.mm(a3_prime, torch.diag(self.fc3.weight[0]))
+    #    res2 = torch.mm(res2, self.fc2.weight)
+    #    res2 = res2*a2_prime2
+    #    res2 = torch.mm(res2, self.fc1.weight**2)
+
+    #    return res1.sum(dim=1) + res2.sum(dim=1)
+
     def laplacian(self, x):
-        out = self.fc1(x)
-        a2_prime = self.activation1_prime(out)
-        a2_prime2 = self.activation1_prime2(out)
-        out = self.fc2(self.activation1(out))
-        a3_prime = self.activation2_prime(out)
-        a3_prime2 = self.activation2_prime2(out)
+        batchsize = x.shape[0]
+        z = torch.randn(batchsize, self.dim).to(x.device)
+        #z = 2*torch.randint(2, (dim, 1), device=x.device).float() - 1.0
+        grad_z = (self.grad(x)*z).sum(dim=1)
+        grad2_z = torch.autograd.grad(grad_z, x, grad_outputs=torch.ones(x.shape[0], device=x.device), create_graph=True)[0]
+        return (grad2_z * z).sum(dim=1)
 
-        res1 = torch.mm(a3_prime2, torch.diag(self.fc3.weight[0]))
-        res = torch.einsum('bj,kj,ji->bki', (a2_prime, self.fc2.weight, self.fc1.weight))
-        res1 = res1* ((res**2).sum(dim=2)) 
-
-        res2 = torch.mm(a3_prime, torch.diag(self.fc3.weight[0]))
-        res2 = torch.mm(res2, self.fc2.weight)
-        res2 = res2*a2_prime2
-        res2 = torch.mm(res2, self.fc1.weight**2)
-
-        return res1.sum(dim=1) + res2.sum(dim=1)
 
 
 class Simple_MLP(nn.Module):
@@ -189,6 +201,14 @@ class Simple_MLP(nn.Module):
         out = torch.mm(out, torch.diag(self.fc2.weight[0]))  
         out = torch.mm(out, self.fc1.weight**2)
         return out.sum(dim=1)
+    
+    #def laplacian(self, x):
+    #    batchsize = x.shape[0]
+    #    z = torch.randn(batchsize, self.dim).to(x.device)
+    #    #z = 2*torch.randint(2, (dim, 1), device=x.device).float() - 1.0
+    #    grad_z = (self.grad(x)*z).sum(dim=1)
+    #    grad2_z = torch.autograd.grad(grad_z, x, grad_outputs=torch.ones(x.shape[0], device=x.device), create_graph=True)[0]
+    #    return (grad2_z * z).sum(dim=1)
 
     def acceleration(self, x):
         '''

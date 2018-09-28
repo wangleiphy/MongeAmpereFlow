@@ -28,7 +28,6 @@ def vi(target, model, optimizer, Nepochs, Batchsize, L, alpha = 0.0 , delta = 0.
     params = list(filter(lambda p: p.requires_grad, params))
     nparams = sum([np.prod(p.size()) for p in params])
     print ('total nubmer of trainable parameters:', nparams)
-    #scheduler = ReduceLROnPlateau(optimizer, 'min', verbose=True)
    
     plt.ion() 
 
@@ -98,20 +97,21 @@ def vi(target, model, optimizer, Nepochs, Batchsize, L, alpha = 0.0 , delta = 0.
             
             x, logp_x = model.sample(Batchsize) # sample from the model
             logpi_x = target(x)                 # target 
-            fe = (logp_x - logpi_x)/L**2
+            fe = (logp_x - logpi_x)/L**2        # actual free energy
+            fe_anneal = (logp_x - logpi_x)/L**2 # annealed free energy
             
             if (delta>0):
                 #compute force difference
                 force_model = torch.autograd.grad(-model.nll(x), x, grad_outputs=torch.ones(x.shape[0], device=x.device))[0]
                 force_target = torch.autograd.grad(target(x), x, grad_outputs=torch.ones(x.shape[0], device=x.device))[0]
                 force_diff = ((force_model-force_target)**2).mean()
-                loss = fe.mean() + delta * force_diff
+                loss = fe_anneal.mean() + delta * force_diff
 
             else:
                 force_diff = torch.Tensor([np.NaN]) 
-                loss = fe.mean() 
+                loss = fe_anneal.mean() 
 
-            message = 'epoch: {}, loss: {:.6f}, fe: {:.6f}, fe_std: {:.6f}, force_diff: {:.6f}'.format(epoch, 
+            message = 'epoch: {}, loss: {:.6f}, fe: {:.6f}, fe_std: {:.6f}, force_diff: {:.6f}'.format(epoch,
                                                                                                        loss.data.item(), 
                                                                                                        fe.mean().data.item(), 
                                                                                                        fe.std().data.item(), 
@@ -135,10 +135,10 @@ def vi(target, model, optimizer, Nepochs, Batchsize, L, alpha = 0.0 , delta = 0.
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            #scheduler.step(loss.data[0])
 
             if save and epoch%save_period==0:
-                with torch.no_grad():
+                #with torch.no_grad():
+                if True: 
                     save_checkpoint(model.name+'/epoch_{:04d}.chkp'.format(epoch), model, optimizer)
                     
                     #fig1: sample projection
@@ -188,7 +188,7 @@ def vi(target, model, optimizer, Nepochs, Batchsize, L, alpha = 0.0 , delta = 0.
                     x, _ = model.sample(100) # samples 
                     p = x.view(-1, 1, L, L) 
                     #p = torch.sigmoid(2.*x).view(x.shape[0], 1, L, L) # put it into 0-1
-                    img = make_grid(p, padding=1, nrow=10,normalize=True,scale_each=False).to('cpu').numpy()
+                    img = make_grid(p, padding=1, nrow=10,normalize=True,scale_each=False).to('cpu').detach().numpy()
                     im.set_data(np.transpose(img, (1, 2, 0)))
                     fig4.canvas.draw()
                     save_image(p, model.name+'/config_{:04d}.png'.format(epoch), nrow=10, padding=1)
@@ -233,9 +233,11 @@ if __name__=="__main__":
     group.add_argument("-target", default='ising', help="target distribution")
     group.add_argument("-L",type=int, default=4,help="linear size")
     group.add_argument("-d",type=int, default=2,help="dimension")
+    group.add_argument("-BC", default='periodic', help="boundary condition")
+
     #ising
     group.add_argument("-T",type=float, default=2.269185314213022, help="Temperature")
-    
+
     #phi4 
     group.add_argument("-n",type=int, default=1,help="component")
     group.add_argument("-kappa",type=float, default=0.15, help="kappa")
@@ -260,7 +262,7 @@ if __name__=="__main__":
     if args.target == 'phi4':
         target = Phi4(args.n, args.L, args.d, args.kappa, args.lambd, device=device)
     elif args.target == 'ising':
-        target = Ising(args.L, args.d, args.T)
+        target = Ising(args.L, args.d, args.T, args.BC)
     else:
         print ('what target ?', args.target)
         sys.exit(1)
@@ -271,7 +273,8 @@ if __name__=="__main__":
     key = folder + args.target 
 
     if (args.target=='ising'):
-        key += '_L' + str(args.L)\
+        key += '_' +args.BC \
+              + '_L' + str(args.L)\
               + '_d' + str(args.d) \
               + '_T' + str(args.T)
     elif (args.target=='phi4'):

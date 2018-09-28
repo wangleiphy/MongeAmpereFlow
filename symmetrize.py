@@ -5,8 +5,8 @@ import numpy as np
 class Symmetrize(nn.Module):
     '''
     argument spatial symmetry (translation and rotation) to the network
-    for each input x in the batch,radomly move them to the symmetrized realted position via a perm
-    f(x) and laplacian f(x) are invariance 
+    for each input x in the batch,radomly move them to the symmetry realted position via a perm
+    f(x) and laplacian f(x) are invariant
     grad f(x) is coinvariant
     '''
     def __init__(self, net, L, n):

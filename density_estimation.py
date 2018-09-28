@@ -89,7 +89,7 @@ if __name__ == "__main__":
     if args.net == 'MLP':
         net = MLP(dim=dim, hidden_size = args.hdim, use_z2=False)
     elif args.net == 'CNN':
-        net = CNN(L=dim, hidden_size = args.hdim)
+        net = CNN(L=length, hidden_size = args.hdim, use_z2=False)
     elif args.net == 'Simple_MLP':
         net = Simple_MLP(dim=dim, hidden_size = args.hdim, use_z2=False)
     else:
@@ -149,7 +149,7 @@ if __name__ == "__main__":
  
             total_loss = 0.0
             for batch_idx, (data, target) in enumerate(loader):
-                data = data.to(device).view(-1, dim)
+                data = data.to(device).view(-1, dim).requires_grad_()
                 #if (train and batch_idx > 10): break
                 loss = model.nll(data).mean()
                 total_loss += loss.data.item()
@@ -169,7 +169,8 @@ if __name__ == "__main__":
             for epoch in range(args.Nepochs):
                 step(train_loader, train = True)
  
-                with torch.no_grad():
+                #with torch.no_grad():
+                if True:
                     train_loss = step(train_loader, train= False) # not as the running average 
                     valid_loss = step(valid_loader,train = False)
                     test_loss = step(test_loader,train = False)

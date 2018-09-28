@@ -10,11 +10,11 @@ from .lattice import Hypercube
 
 class Ising(Target):
 
-    def __init__(self, L, d, T):
+    def __init__(self, L, d, T, BC='periodic'):
         super(Ising, self).__init__(L**d,'Ising')
         self.beta = 1.0
 
-        self.lattice = Hypercube(L, d, 'periodic')
+        self.lattice = Hypercube(L, d, BC)
         self.K = self.lattice.Adj/T
     
         w, v = eigh(self.K)    
@@ -65,7 +65,7 @@ if __name__=='__main__':
     L = 64
     d = 2
     T = 2.269185314213022
-    ising = Ising(L, d, T) 
+    ising = Ising(L, d, T, 'open') 
     #x = Variable(torch.randn(10, 2).double())
     #print (x)
     #print (ising.energy(x))
