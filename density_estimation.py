@@ -89,7 +89,7 @@ if __name__ == "__main__":
     if args.net == 'MLP':
         net = MLP(dim=dim, hidden_size = args.hdim, use_z2=False)
     elif args.net == 'CNN':
-        net = CNN(L=length, hidden_size = args.hdim, use_z2=False)
+        net = CNN(L=length, channel=channel, hidden_size = args.hdim, use_z2=False)
     elif args.net == 'Simple_MLP':
         net = Simple_MLP(dim=dim, hidden_size = args.hdim, use_z2=False)
     else:
@@ -190,9 +190,9 @@ if __name__ == "__main__":
                     logfile.write(message + u'\n')
 
                     #sample 
-                    x, _ = model.sample(100) # samples 
+                    x, _ = model.sample(16) # samples 
                     x = logit_back(x, alpha).view(x.shape[0], channel, length, length)
-                    save_image(x, key+'/epoch_{:04d}.png'.format(epoch), nrow=10, padding=1)
+                    save_image(x, key+'/epoch_{:04d}.png'.format(epoch), nrow=4, padding=1)
                     save_checkpoint(key+'/epoch_{:04d}.chkp'.format(epoch), model, optimizer)
 
                     if args.show: 

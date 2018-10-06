@@ -28,6 +28,8 @@ def vi(target, model, optimizer, Nepochs, Batchsize, L, alpha = 0.0 , delta = 0.
     params = list(filter(lambda p: p.requires_grad, params))
     nparams = sum([np.prod(p.size()) for p in params])
     print ('total nubmer of trainable parameters:', nparams)
+    #scheduler = ReduceLROnPlateau(optimizer, 'min', verbose=True)
+    #scheduler = CosineAnnealingLR(optimizer, Nepochs, eta_min=1E-4)
    
     plt.ion() 
 
@@ -95,46 +97,53 @@ def vi(target, model, optimizer, Nepochs, Batchsize, L, alpha = 0.0 , delta = 0.
     with io.open(model.name + '.log', 'a', buffering=1, newline='\n') as logfile:
         for epoch in range(Nepochs):
             
+            #beta = 1.0 
+            #if (epoch < Nepochs//2):
+            #    beta = epoch/(Nepochs//2)
+            #else:
+            #    beta = 1.0 
+            
             x, logp_x = model.sample(Batchsize) # sample from the model
             logpi_x = target(x)                 # target 
             fe = (logp_x - logpi_x)/L**2        # actual free energy
-            fe_anneal = (logp_x - logpi_x)/L**2 # annealed free energy
             
             if (delta>0):
                 #compute force difference
                 force_model = torch.autograd.grad(-model.nll(x), x, grad_outputs=torch.ones(x.shape[0], device=x.device))[0]
                 force_target = torch.autograd.grad(target(x), x, grad_outputs=torch.ones(x.shape[0], device=x.device))[0]
-                force_diff = ((force_model-force_target)**2).mean()
-                loss = fe_anneal.mean() + delta * force_diff
+                force_diff = ((force_model-force_target)**2).view(x.shape[0], -1).sum(dim=1)/L**2
+                loss = (fe.mean() + delta * force_diff.mean()) *L**2
 
             else:
                 force_diff = torch.Tensor([np.NaN]) 
-                loss = fe_anneal.mean() 
+                loss = fe.mean() * L**2
 
-            message = 'epoch: {}, loss: {:.6f}, fe: {:.6f}, fe_std: {:.6f}, force_diff: {:.6f}'.format(epoch,
-                                                                                                       loss.data.item(), 
-                                                                                                       fe.mean().data.item(), 
-                                                                                                       fe.std().data.item(), 
-                                                                                                       force_diff.data.item())
+            message = 'epoch: {}, loss: {:.6f}, fe: {:.6f}, fe_std: {:.6f}, force_diff: {:.6f}'.format(epoch, 
+                                                                                                       loss.item()/L**2, 
+                                                                                                       fe.mean().item(), 
+                                                                                                       fe.std().item(), 
+                                                                                                       force_diff.mean().item())
 
             print (message)
 
             message = ('{} '+ 4*'{:.6f} ').format(epoch,
-                                                loss.data.item(), 
-                                                fe.mean().data.item(), 
-                                                fe.std().data.item(), 
-                                                force_diff.data.item())
+                                                loss.item()/L**2, 
+                                                fe.mean().item(), 
+                                                fe.std().item(), 
+                                                force_diff.mean().item())
             logfile.write(message + u'\n')
 
-            LOSS.append([fe.std().data.item(), 
-                         fe.mean().data.item(),
-                         loss.data.item(),
-                         force_diff.data.item()
+            LOSS.append([fe.std().item(), 
+                         fe.mean().item(),
+                         loss.item()/L**2,
+                         force_diff.mean().data.item()
                          ])
            
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+            #scheduler.step()
+            #scheduler.step(loss.data.item())
 
             if save and epoch%save_period==0:
                 #with torch.no_grad():
@@ -185,10 +194,10 @@ def vi(target, model, optimizer, Nepochs, Batchsize, L, alpha = 0.0 , delta = 0.
                     #fig3.canvas.draw()
 
                     #fig4: configurations
-                    x, _ = model.sample(100) # samples 
+                    x, _ = model.sample(16) # samples 
                     p = x.view(-1, 1, L, L) 
                     #p = torch.sigmoid(2.*x).view(x.shape[0], 1, L, L) # put it into 0-1
-                    img = make_grid(p, padding=1, nrow=10,normalize=True,scale_each=False).to('cpu').detach().numpy()
+                    img = make_grid(p, padding=1, nrow=4,normalize=True,scale_each=False).to('cpu').detach().numpy()
                     im.set_data(np.transpose(img, (1, 2, 0)))
                     fig4.canvas.draw()
                     save_image(p, model.name+'/config_{:04d}.png'.format(epoch), nrow=10, padding=1)

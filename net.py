@@ -36,7 +36,7 @@ def roll(tensor, shift, axis):
     return torch.cat([after, before], axis)
 
 class CNN(nn.Module):
-    def __init__(self, L, hidden_size, use_z2=True,device='cpu', name=None):
+    def __init__(self, L, channel, hidden_size, use_z2=True,device='cpu', name=None):
         super(CNN, self).__init__()
         self.device = device
         if name is None:
@@ -45,10 +45,11 @@ class CNN(nn.Module):
             self.name = name
  
         self.L = L 
-        self.dim = L**2
-        self.conv1 = nn.Conv2d(1, hidden_size, kernel_size=3, padding=1)
-        #self.conv2 = nn.Conv2d(hidden_size, 2*hidden_size, kernel_size=3, padding=1)
-        self.fc1 = nn.Linear(hidden_size*(self.L//2)**2, 64)
+        self.channel = channel
+        self.dim = channel*L**2
+        self.conv1 = nn.Conv2d(channel, hidden_size, kernel_size=3, padding=1)
+        self.conv2 = nn.Conv2d(hidden_size, 2*hidden_size, kernel_size=3, padding=1)
+        self.fc1 = nn.Linear(2*hidden_size*(self.L//4)**2, 64)
         self.fc2 = nn.Linear(64, 1, bias=False)
 
         self.use_z2 = use_z2
@@ -60,9 +61,9 @@ class CNN(nn.Module):
             return self._forward(x)
 
     def _forward(self, x):
-        x = x.view(x.shape[0], 1, self.L, self.L)
+        x = x.view(x.shape[0], self.channel, self.L, self.L)
         x = F.softplus(F.avg_pool2d(self.conv1(x), 2))
-        #x = F.softplus(F.avg_pool2d(self.conv2(x), 2))
+        x = F.softplus(F.avg_pool2d(self.conv2(x), 2))
         x = x.view(x.shape[0], -1)
         x = F.softplus(self.fc1(x))
         return self.fc2(x).sum(dim=1)
