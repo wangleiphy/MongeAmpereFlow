@@ -194,9 +194,9 @@ def vi(target, model, optimizer, Nepochs, Batchsize, L, alpha = 0.0 , delta = 0.
                     #fig3.canvas.draw()
 
                     #fig4: configurations
-                    x, _ = model.sample(16) # samples 
-                    p = x.view(-1, 1, L, L) 
-                    #p = torch.sigmoid(2.*x).view(x.shape[0], 1, L, L) # put it into 0-1
+                    #x, _ = model.sample(16) # samples 
+                    #p = x.view(-1, 1, L, L) 
+                    p = torch.sigmoid(2.*x[:16, :]).view(-1, 1, L, L) # put it into 0-1
                     img = make_grid(p, padding=1, nrow=4,normalize=True,scale_each=False).to('cpu').detach().numpy()
                     im.set_data(np.transpose(img, (1, 2, 0)))
                     fig4.canvas.draw()
@@ -310,7 +310,7 @@ if __name__=="__main__":
     if args.net == 'MLP':
         net = MLP(dim=target.nvars, hidden_size = args.hdim)
     elif args.net == 'CNN':
-        net = CNN(L=args.L, hidden_size = args.hdim)
+        net = CNN(L=args.L, channel=1, hidden_size = args.hdim)
     elif args.net == 'Simple_MLP':
         net = Simple_MLP(dim=target.nvars, hidden_size = args.hdim)
     else:
